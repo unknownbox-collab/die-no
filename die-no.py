@@ -40,7 +40,6 @@ def bulletMoveAndDraw(screen):
 
     bullets_copy = bullets.copy()
     popped = 0
-    print(bullets)
     for i in range(len(bullets_copy)) :
         bullet = bullets_copy[i]
         bullet.move()
