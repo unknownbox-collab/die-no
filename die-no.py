@@ -203,7 +203,7 @@ def keyboard():
 def drawBG(screen,timer):
     global BGRects
     #BGRects = [BGRect((20,SCREEN_HEIGHT-20),100,2,5)]
-    if timer%150 == 0:
+    if timer%150*5/int(SPEED) == 0:
         y = random.randint(0,SCREEN_HEIGHT)
         size = random.randint(50,150)
         distance = random.randint(250,500)
@@ -221,6 +221,10 @@ if __name__ == "__main__":
     pygame.init()
     pygame.display.set_caption("DIE-NO GAME")
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    pygame.mixer.init()
+    pygame.mixer.music.load('Hope.mp3')
+    pygame.mixer.music.play(-1)
+    pygame.mixer.music.set_volume(0.5)
 
     clock = pygame.time.Clock()
     while True:
