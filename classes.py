@@ -298,6 +298,14 @@ class Pattern:
 
     def interpret(self,num):
         return map(copy.copy,self.pattern[num])
+
+class BGRect:
+    def __init__(self,x,y,size) -> None:
+        self.x = x
+        self.y = y
+        self.size = size
+        self.color
+
 GROUND = -400
 
 PLAYER_SIZE = 20

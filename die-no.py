@@ -40,6 +40,7 @@ def bulletMoveAndDraw(screen):
 
     bullets_copy = bullets.copy()
     popped = 0
+    print(bullets)
     for i in range(len(bullets_copy)) :
         bullet = bullets_copy[i]
         bullet.move()
@@ -104,6 +105,7 @@ def bulletHitObstacle():
             bulletInReal.hp -= bullet_hp
             
             if bullet.hp <= 0 :
+                print("anjdla")
                 bullets.pop(i-bullet_popped)
                 bullet_popped += 1
 
@@ -187,6 +189,7 @@ def keyboard():
             player.attackUp()
         if event.type == pygame.KEYDOWN and scene == GAME_SCENE :
             if event.key == pygame.K_z:
+                print("???")
                 player.attackDown()
             if event.key == pygame.K_SPACE:
                 if jumped == 1:
@@ -272,7 +275,7 @@ if __name__ == "__main__":
             objectTimer = 0
             timer = 0
             damagedTime = -255
-            bullets = []
+            bullets.clear()
             obstacles = []
             items = []
             jumped = 0
