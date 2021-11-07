@@ -300,11 +300,24 @@ class Pattern:
         return map(copy.copy,self.pattern[num])
 
 class BGRect:
-    def __init__(self,x,y,size) -> None:
-        self.x = x
-        self.y = y
+    def __init__(self,pos,size) -> None:
+        self.x = pos[0]
+        self.y = pos[1]
         self.size = size
-        self.color
+        self.color = WHITE
+
+        self.skin = pygame.Surface((self.size,self.size),pygame.SRCALPHA)
+        self.skin.set_alpha(100)
+        pygame.draw.rect(self.skin,WHITE,pygame.Rect(0,0,self.size,self.size),5)
+        self.angle = 0
+
+    def rotate(self,angle):
+        self.angle = angle
+        self.skin = pygame.transform.rotate(self.skin, self.angle)
+
+    def draw(self,screen):
+        skin = self.skin.get_rect(center = (self.x,self.y))
+        screen.blit(self.skin, skin)
 
 GROUND = -400
 

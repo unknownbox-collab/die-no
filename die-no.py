@@ -104,7 +104,6 @@ def bulletHitObstacle():
             bulletInReal.hp -= bullet_hp
             
             if bullet.hp <= 0 :
-                print("anjdla")
                 bullets.pop(i-bullet_popped)
                 bullet_popped += 1
 
@@ -181,14 +180,13 @@ def keyboard():
     pressed_keys = pygame.key.get_pressed()
     if pressed_keys[pygame.K_z]:
         player.attackCharging(screen)
+    elif player is not None:
+        player.attackUp()
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             sys.exit()
-        if event.type == pygame.KEYUP and scene == GAME_SCENE :
-            player.attackUp()
         if event.type == pygame.KEYDOWN and scene == GAME_SCENE :
             if event.key == pygame.K_z:
-                print("???")
                 player.attackDown()
             if event.key == pygame.K_SPACE:
                 if jumped == 1:
@@ -200,6 +198,12 @@ def keyboard():
         mouse = list(pygame.mouse.get_pos()) + [False]
         if event.type == pygame.MOUSEBUTTONDOWN:
             mouse[2] = True
+
+def drawBG(screen,timer):
+    BGRects = [BGRect((50,SCREEN_HEIGHT-20),200),BGRect((120,SCREEN_HEIGHT-100),100)]
+    for i in range(len(BGRects)):
+        BGRects[i].rotate(timer*(i+1)/100)
+        BGRects[i].draw(screen)
 
 if __name__ == "__main__":
     pygame.init()
@@ -237,6 +241,7 @@ if __name__ == "__main__":
 
         elif scene == GAME_SCENE :
             makeObstacle(100)
+            drawBG(screen,timer)
             pygame.draw.line(screen,WHITE,(0,-GROUND),(SCREEN_WIDTH,-GROUND),5)
             bulletMoveAndDraw(screen)
             obstaclesMoveAndDraw(screen)
