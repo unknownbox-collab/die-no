@@ -19,8 +19,8 @@ GAME_SCENE = 2
 DIED_PROCESSING = 3
 DIED_SCENE = 4
 
-ITEM_IMG = pygame.image.load('./item.png')    
-ENERGY_EFFECT_IMG = pygame.image.load('./EneryEffect.png')
+ITEM_IMG = pygame.image.load('./assets/pictures/item.png')    
+ENERGY_EFFECT_IMG = pygame.image.load('./assets/pictures/EneryEffect.png')
 ENERGY_EFFECT_IMG = pygame.transform.scale(ENERGY_EFFECT_IMG, (40, 40))
 
 bullets = []
@@ -281,7 +281,7 @@ class ObstacleHPBar:
 
 class Pattern:
     def __init__(self) -> None:
-        pattern = open("./pattern.json",'r')
+        pattern = open("./assets/pattern.json",'r')
         PATTERN = pattern.read()
         self.pattern = json.loads(PATTERN)
         temp = []

@@ -1,12 +1,12 @@
 from random import randint
-from classes import *
+from assets.classes import *
 
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import db
 
 db_url = 'https://ham2021-bothe-default-rtdb.asia-southeast1.firebasedatabase.app/'
-cred = credentials.Certificate("./key.json")
+cred = credentials.Certificate("./assets/key.json")
 default_app = firebase_admin.initialize_app(cred, {'databaseURL':db_url})
 
 
@@ -222,7 +222,7 @@ if __name__ == "__main__":
     pygame.display.set_caption("DIE-NO GAME")
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.mixer.init()
-    pygame.mixer.music.load('Hope.mp3')
+    pygame.mixer.music.load('./assets/musics/SkyHigh.mp3')
     pygame.mixer.music.play(-1)
     pygame.mixer.music.set_volume(0.5)
 
