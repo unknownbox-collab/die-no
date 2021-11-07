@@ -24,6 +24,7 @@ ENERGY_EFFECT_IMG = pygame.image.load('./EneryEffect.png')
 ENERGY_EFFECT_IMG = pygame.transform.scale(ENERGY_EFFECT_IMG, (40, 40))
 
 bullets = []
+BGRects = []
 
 def move(pos,direct,x):
     return (pos[0] + math.cos(math.radians(direct))*x, pos[1] + math.sin(math.radians(direct))*x)
@@ -300,24 +301,33 @@ class Pattern:
         return map(copy.copy,self.pattern[num])
 
 class BGRect:
-    def __init__(self,pos,size) -> None:
+    def __init__(self,pos,size,distance,angleSpeed) -> None:
         self.x = pos[0]
         self.y = pos[1]
         self.size = size
         self.color = WHITE
+        self.distance = distance
+        self.angleSpeed = angleSpeed
 
         self.skin = pygame.Surface((self.size,self.size),pygame.SRCALPHA)
-        self.skin.set_alpha(100)
-        pygame.draw.rect(self.skin,WHITE,pygame.Rect(0,0,self.size,self.size),5)
+        self.skin.set_alpha(70/400*self.distance)
+        pygame.draw.rect(self.skin,WHITE,pygame.Rect(0,0,self.size,self.size),self.size//3)
         self.angle = 0
 
     def rotate(self,angle):
-        self.angle = angle
-        self.skin = pygame.transform.rotate(self.skin, self.angle)
+        self.angle += angle
+    
+    def move(self,speed):
+        temp = self.angle
+        self.angle = 0
+        self.x -= speed / self.distance
+        self.angle = temp
+        self.rotate(self.angleSpeed)
 
     def draw(self,screen):
-        skin = self.skin.get_rect(center = (self.x,self.y))
-        screen.blit(self.skin, skin)
+        skin = pygame.transform.rotate(self.skin, self.angle)
+        self.skinRect = skin.get_rect(center = (self.x,self.y))
+        screen.blit(skin, self.skinRect)
 
 GROUND = -400
 

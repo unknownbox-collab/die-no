@@ -1,3 +1,4 @@
+from random import randint
 from classes import *
 
 import firebase_admin
@@ -200,10 +201,21 @@ def keyboard():
             mouse[2] = True
 
 def drawBG(screen,timer):
-    BGRects = [BGRect((50,SCREEN_HEIGHT-20),200),BGRect((120,SCREEN_HEIGHT-100),100)]
+    global BGRects
+    #BGRects = [BGRect((20,SCREEN_HEIGHT-20),100,2,5)]
+    if timer%150 == 0:
+        y = random.randint(0,SCREEN_HEIGHT)
+        size = random.randint(50,150)
+        distance = random.randint(250,500)
+        angleSpeed = random.randint(500,3000)
+        BGRects.append(BGRect((SCREEN_WIDTH+size,y*math.sqrt(2)),size,distance,angleSpeed/10000))
+    popped = 0
     for i in range(len(BGRects)):
-        BGRects[i].rotate(timer*(i+1)/100)
-        BGRects[i].draw(screen)
+        BGRects[i-popped].move(SPEED*5)
+        BGRects[i-popped].draw(screen)
+        if BGRects[i-popped].x + BGRects[i-popped].size * math.sqrt(2) <= 0:
+            BGRects.pop(i-popped)
+            popped += 1
 
 if __name__ == "__main__":
     pygame.init()
