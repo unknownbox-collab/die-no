@@ -1,17 +1,45 @@
-import pygame,sys,math,time,copy,datetime,json,random
+import pygame,sys,math,copy,json,random,urllib,os
 import numpy as np
+from pygame import event
+from pygame.constants import K_SPACE
 
 SCREEN_WIDTH = 1000
 SCREEN_HEIGHT = 500
 
-WHITE = (255, 255, 255)
-ORANGE = (255, 127, 0)
-YELLOW = (255, 255, 0)
-BLACK = (0, 0, 0)
-BLUE = (0,0,255)
-RED = (255,0,0)
-SKYBLUE = (135, 206, 235)
-SPEED = 5
+WHITE   =  (255, 255, 255)
+ORANGE  =  (255, 127, 0  )
+YELLOW  =  (255, 255, 0  )
+BLACK   =  (0,   0,   0  )
+BLUE    =  (0,   0,   255)
+RED     =  (255, 0,   0  )
+SKYBLUE =  (135, 206, 235)
+SLIVER  =  (192, 192, 192)
+SPEED   =  5
+
+SHIFTED = {
+    '`' : '~',
+    '1' : '!',
+    '2' : '@',
+    '3' : '#',
+    '4' : '$',
+    '5' : '%',
+    '6' : '^',
+    '7' : '&',
+    '8' : '*',
+    '9' : '(',
+    '0' : ')',
+    '-' : '_',
+    '=' : '+',
+    '[' : '{',
+    ']' : '}',
+    '\\' : '|',
+    ';' : ':',
+    '"' : "'",
+    ',' : '<',
+    '.' : '>',
+    '/' : '?'
+}
+capsLock = False
 
 START_SCENE = 0
 CHARACTER_CHOOSE_SCENE = 1
@@ -19,9 +47,11 @@ GAME_SCENE = 2
 DIED_PROCESSING = 3
 DIED_SCENE = 4
 
-ITEM_IMG = pygame.image.load('./assets/pictures/item.png')    
-ENERGY_EFFECT_IMG = pygame.image.load('./assets/pictures/EneryEffect.png')
+ITEM_IMG = pygame.image.load(os.path.join('.','assets','pictures','item.png'))    
+ENERGY_EFFECT_IMG = pygame.image.load(os.path.join('.','assets','pictures','EneryEffect.png'))
 ENERGY_EFFECT_IMG = pygame.transform.scale(ENERGY_EFFECT_IMG, (40, 40))
+
+FONT = './assets/Binggrae-Bold.ttf'
 
 bullets = []
 BGRects = []
@@ -40,6 +70,23 @@ def isPointInRect(pointX,pointY,rect):
 
 def isCircleInCircle(circleX1,circleY1,circleR1,circleX2,circleY2,circleR2):
     return getDistance(circleX1,circleY1,circleX2,circleY2) <= (circleR1 + circleR2)
+
+def write(screen,text,pos,font,size,color,center = None):
+    try:
+        myfont = pygame.font.Font(font, size)
+    except:
+        myfont = pygame.font.SysFont(font, size)
+
+    textsurface = myfont.render(text, False, color)
+    if center is None:
+        text_rect = textsurface.get_rect(center=(pos[0], pos[1]))
+        screen.blit(textsurface,text_rect)
+    elif center:
+        screen.blit(textsurface,pos)
+    else:
+        text_rect = textsurface.get_rect()
+        text_rect.right = pos[0]
+        screen.blit(textsurface,text_rect)
 
 class Player:
     def __init__(self,x,y,ground,hp,size) -> None:
@@ -108,6 +155,17 @@ class Player:
     
     def attackUp(self):
         global bullets
+    
+    def displayItem(self,screen):
+        write(screen,str(self.effect[1]),(250,50),FONT,20,WHITE)
+    
+    @staticmethod
+    def repr():
+        return 'Null'
+    
+    @staticmethod
+    def info():
+        return ['정보없음','정보없음','정보없음']
 
 class Standard(Player):
     def __init__(self,x,y,ground,size) -> None:
@@ -127,6 +185,14 @@ class Standard(Player):
     
     def attackUp(self):
         return super().attackUp()
+    
+    @staticmethod
+    def repr():
+        return 'Standard'
+    
+    @staticmethod
+    def info():
+        return ['흰 총알을 발사합니다.(atk : 1)','파괴적인 총알을 발사합니다.(atk : 3)(5발)','70']
 
 class Tech(Player):
     def __init__(self, x, y, ground,size) -> None:
@@ -148,6 +214,18 @@ class Tech(Player):
         super().attackUp()
         if self.power > 0: bullets.append(Bullet(self,2,self.power))
         self.power = 0
+    
+    def displayItem(self,screen):
+        write(screen,str(round(self.effect[1]*20)),(250,50),FONT,20,WHITE)
+    
+    @staticmethod
+    def repr():
+        return 'Tech'
+    
+    @staticmethod
+    def info():
+        return ['z키를 누르는동안 에너지를 충전하여 발사합니다.(atk : 1+α)','충전속도가 7배 빨라집니다.(50프레임)','40']
+
 
 class Giant(Player):
     def __init__(self, x, y, ground,size) -> None:
@@ -174,6 +252,73 @@ class Giant(Player):
     def attackUp(self):
         return super().attackUp()
 
+    @staticmethod
+    def repr():
+        return 'Giant'
+    
+    @staticmethod
+    def info():
+        return ['강한 총알을 발사합니다.(atk : 2)','총알 2발 발사합니다.(atk : 2)(5×2발)','90 / 크기가 더 큽니다.']
+
+
+class Gatling(Player):
+    def __init__(self, x, y, ground, size) -> None:
+        super().__init__(x, y, ground, 50, size)
+        pygame.draw.circle(self.skin,SLIVER,(self.size,self.size),self.size)
+        pygame.draw.circle(self.skin,BLACK,(self.size,self.size),self.size*2/3)
+
+    def attackDown(self):
+        super().attackDown()
+        bullets.append(Bullet(self,0.6))
+        
+    def attackCharging(self,screen):
+        super().attackUp()
+        if 1 in self.effect.keys():
+            bullets.append(Bullet(self,0.6))
+            self.effectCounter(0.2)
+    
+    def attackUp(self):
+        super().attackUp()
+        bullets.append(Bullet(self,0.6))
+    
+    def displayItem(self, screen):
+        write(screen,str(round(self.effect[1]*5)),(250,50),FONT,20,WHITE)
+
+    @staticmethod
+    def repr():
+        return 'Gatling'
+
+    @staticmethod
+    def info():
+        return ['은 총알을 발사합니다.(atk : 0.6)(z키를 땔 때 한 발 더 발사)','z키를 누르는 동안 총알이 발사됩니다.(atk : 0.6)(25발)','50']
+
+class Subject(Player):
+    def __init__(self, x, y, ground, size) -> None:
+        super().__init__(x, y, ground, 10, size)
+        pygame.draw.circle(self.skin,YELLOW,(self.size,self.size),self.size)
+        pygame.draw.circle(self.skin,SLIVER,(self.size,self.size),self.size*2/3)
+
+    def attackDown(self):
+        super().attackDown()
+        bullets.append(Bullet(self,100))
+        
+    def attackCharging(self,screen):
+        super().attackUp()
+    
+    def attackUp(self):
+        super().attackUp()
+    
+    def displayItem(self, screen):
+        write(screen,str(round(self.effect[1]*5)),(250,50),FONT,20,WHITE)
+
+    @staticmethod
+    def repr():
+        return 'Subject'
+
+    @staticmethod
+    def info():
+        return ['실험체','실험체','10']
+
 class Item:
     def __init__(self,x,y,size,obstacle,type,shape = 0) -> None:
         self.x = x - obstacle.xSize/2
@@ -184,8 +329,8 @@ class Item:
         self.obstacle = obstacle
         self.img = pygame.transform.scale(ITEM_IMG, (self.size, self.size))
     
-    def move(self):
-        self.x -= SPEED
+    def move(self,speed):
+        self.x -= speed
     
     def eat(self,player):
         player.getEffect(self.type,5)
@@ -209,8 +354,8 @@ class Obstacle:
         self.c = c
         self.item = item
     
-    def move(self):
-        self.x -= SPEED
+    def move(self,speed):
+        self.x -= speed
 
     def draw(self,screen):
         pygame.draw.rect(screen,self.c,pygame.Rect(self.x-self.xSize,-self.y,self.xSize*2,2*self.ySize))
@@ -231,6 +376,9 @@ class Bullet:
         if self.type == 3:
             self.hp = 2
             self.size = 10
+        if 0 < self.type < 1:
+            self.hp = self.type
+            self.size = 3
     
     def move(self):
         self.x += 10
@@ -260,6 +408,8 @@ class Bullet:
         elif self.type == 3:
             pygame.draw.circle(screen,RED,(self.x,-self.y),self.size)
             pygame.draw.circle(screen,WHITE,(self.x,-self.y),self.size*2/3)
+        elif self.type < 1:
+            pygame.draw.circle(screen,SLIVER,(self.x,-self.y),self.size)
 
 class PlayerHPBar:
     def __init__(self,player) -> None:
@@ -281,7 +431,7 @@ class ObstacleHPBar:
 
 class Pattern:
     def __init__(self) -> None:
-        pattern = open("./assets/pattern.json",'r')
+        pattern = open(os.path.join('.','assets','pattern.json'),'r')
         PATTERN = pattern.read()
         self.pattern = json.loads(PATTERN)
         temp = []
@@ -329,8 +479,61 @@ class BGRect:
         self.skinRect = skin.get_rect(center = (self.x,self.y))
         screen.blit(skin, self.skinRect)
 
+class TextInput:
+    def __init__(self,x,y,fontSize,maxText,center = 0) -> None:
+        self.x = x + center * fontSize * maxText/2
+        self.y = y + center * fontSize/2
+        self.center = center
+        self.size = fontSize
+        self.maxText = maxText
+        self.text = ""
+        self.click = False
+        self.recentPressed = []
+    
+    def input(self):
+        global capsLock
+
+        pressed = pygame.key.get_pressed()
+        click = []
+        for i in range(len(pressed)):
+            if pressed[i]: click.append(i)
+        if len(click) != 0 :
+            if pressed[pygame.K_TAB] and (not pygame.K_TAB in self.recentPressed):
+                self.text += '    '
+            elif pressed[pygame.K_CAPSLOCK] and (not pygame.K_CAPSLOCK in self.recentPressed):
+                capsLock = not capsLock
+                print(capsLock)
+            elif pressed[pygame.K_BACKSPACE] and (not pygame.K_BACKSPACE in self.recentPressed):
+                if len(self.text) : self.text = self.text[:-1]
+            elif pressed[pygame.K_SPACE] and (not pygame.K_SPACE in self.recentPressed):
+                self.text += ' '
+            else:
+                shift = False
+                for i in click:
+                    if not i in self.recentPressed and pygame.K_SPACE<=i<=pygame.K_z:
+                        shift = pressed[pygame.K_LSHIFT] or pressed[pygame.K_RSHIFT]
+                        if capsLock : shift = not shift
+                        shifted = i
+                        if 97 <= i <= 122:
+                            shifted -= shift * 32
+                            self.text += pygame.key.name(shifted)
+                        elif shift and pygame.key.name(i) in SHIFTED.keys():
+                            shifted = SHIFTED[pygame.key.name(i)]
+                            self.text += shifted
+                        else:
+                            self.text += pygame.key.name(shifted)
+        if len(self.text) > self.maxText:
+            self.text = self.text[:self.maxText]
+        self.recentPressed = click.copy()
+    
+    def draw(self,screen,timer):
+        pygame.draw.rect(screen,WHITE,pygame.Rect(self.x - self.size * self.maxText/3 - 5,self.y + self.size/2 + 5,self.size * self.maxText*2/3 + 10,self.size + 10))
+        text = self.text
+        if (timer//50)%2 : text+='|'
+        write(screen,text,[5+ self.x - (not self.center) * self.size * self.maxText/3, 5+ self.y + (not self.center) * self.size/2],FONT,self.size,BLACK,1)
+
 GROUND = -400
 
 PLAYER_SIZE = 20
-PLAYER_LIST = [Standard,Tech,Giant]
-PLAYER_NAME_LIST = ['Standard','Tech','Giant']
+PLAYER_LIST = [Standard,Tech,Giant,Gatling]
+PLAYER_NAME_LIST = list(map(lambda x: x.repr(),PLAYER_LIST))
