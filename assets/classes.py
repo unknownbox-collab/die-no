@@ -1,7 +1,27 @@
-import pygame,sys,math,copy,json,random,urllib,os
+import os
+from firebase_admin.db import reference
+try:
+    os.chdir(sys._MEIPASS)
+except:
+    os.chdir(os.getcwd())
+
+import pygame,sys,math,copy,json,random,os
 import numpy as np
+
 from pygame import event
-from pygame.constants import K_SPACE
+WIFI_STATUS = False
+
+try:
+    import firebase_admin
+    from firebase_admin import credentials
+    from firebase_admin import db
+    db_url = 'https://ham2021-bothe-default-rtdb.asia-southeast1.firebasedatabase.app/'
+    cred = credentials.Certificate(os.path.join('.','assets','key.json'))
+    default_app = firebase_admin.initialize_app(cred, {'databaseURL':db_url})
+    db.reference().get()
+    WIFI_STATUS = True
+except:
+    WIFI_STATUS = False
 
 SCREEN_WIDTH = 1000
 SCREEN_HEIGHT = 500
@@ -46,15 +66,18 @@ CHARACTER_CHOOSE_SCENE = 1
 GAME_SCENE = 2
 DIED_PROCESSING = 3
 DIED_SCENE = 4
+RANK_PROCESS_SCENE = 5
+DISPLAY_RANK_SCENE = 6
 
 ITEM_IMG = pygame.image.load(os.path.join('.','assets','pictures','item.png'))    
 ENERGY_EFFECT_IMG = pygame.image.load(os.path.join('.','assets','pictures','EneryEffect.png'))
 ENERGY_EFFECT_IMG = pygame.transform.scale(ENERGY_EFFECT_IMG, (40, 40))
 
-FONT = './assets/Binggrae-Bold.ttf'
-
+FONT = os.path.join('.','assets','Binggrae-Bold.ttf')
 bullets = []
 BGRects = []
+scene = START_SCENE
+character = 0
 
 def move(pos,direct,x):
     return (pos[0] + math.cos(math.radians(direct))*x, pos[1] + math.sin(math.radians(direct))*x)
@@ -70,6 +93,10 @@ def isPointInRect(pointX,pointY,rect):
 
 def isCircleInCircle(circleX1,circleY1,circleR1,circleX2,circleY2,circleR2):
     return getDistance(circleX1,circleY1,circleX2,circleY2) <= (circleR1 + circleR2)
+
+#https://stackoverflow.com/questions/403421/how-to-sort-a-list-of-objects-based-on-an-attribute-of-the-objects
+def sortObjectBy(__Iter1,__attr,reverse = False):
+    return np.array(sorted(__Iter1, key=lambda x: x.__getattribute__(__attr), reverse=reverse))
 
 def write(screen,text,pos,font,size,color,center = None):
     try:
@@ -87,6 +114,25 @@ def write(screen,text,pos,font,size,color,center = None):
         text_rect = textsurface.get_rect()
         text_rect.right = pos[0]
         screen.blit(textsurface,text_rect)
+
+def rankProcess(screen,name,score,character):
+    black = pygame.Surface((SCREEN_WIDTH,SCREEN_HEIGHT))
+    black.fill(BLACK)
+    black.set_alpha(100)
+    screen.blit(black,(0,0))
+    write(screen,'LOADING...',(SCREEN_WIDTH/2,SCREEN_HEIGHT/2),FONT,75,WHITE)
+    pygame.display.update()
+    try:
+        ref = db.reference()
+        if ref.get() is None:
+            ref.update({"rank":[[name,score,character]]})
+        elif min(map(lambda x : x[1],ref.get()['rank'])) < score or len(ref.get()['rank'])<10:
+            ref = db.reference()
+            rank = ref.get()['rank']
+            rank.append([name,score,character])
+            ref.update({"rank":sorted(rank, key=lambda x: x[1],reverse=True)[:10]})
+    except Exception as e:
+        print(e)
 
 class Player:
     def __init__(self,x,y,ground,hp,size) -> None:
@@ -309,15 +355,15 @@ class Subject(Player):
         super().attackUp()
     
     def displayItem(self, screen):
-        write(screen,str(round(self.effect[1]*5)),(250,50),FONT,20,WHITE)
+        write(screen,str('-'),(250,50),FONT,20,WHITE)
 
     @staticmethod
     def repr():
-        return 'Subject'
+        return '고인물'
 
     @staticmethod
     def info():
-        return ['실험체','실험체','10']
+        return ['고인물을 위한 최소한의 투명총알을 드립니다!(1)','고인물에게 아이템이 필요한가요?','10 / 고인물이 과연 장애물에 맞을까요?']
 
 class Item:
     def __init__(self,x,y,size,obstacle,type,shape = 0) -> None:
@@ -425,9 +471,9 @@ class ObstacleHPBar:
         self.obstacle = obstacle
     
     def draw(self,screen):
-        pygame.draw.rect(screen,WHITE,pygame.Rect(self.obstacle.x - 20,-self.obstacle.y - self.obstacle.ySize + 10,40,10))
+        pygame.draw.rect(screen,WHITE,pygame.Rect(self.obstacle.x - 20,-(self.obstacle.y + self.obstacle.ySize - 10),40,10))
         width = (40-4) * self.obstacle.hp/self.obstacle.maxHP
-        pygame.draw.rect(screen,RED,pygame.Rect(self.obstacle.x - 18,-self.obstacle.y - self.obstacle.ySize + 12,width,6))
+        pygame.draw.rect(screen,RED,pygame.Rect(self.obstacle.x - 18,-(self.obstacle.y + self.obstacle.ySize - 12),width,6))
 
 class Pattern:
     def __init__(self) -> None:
@@ -502,7 +548,6 @@ class TextInput:
                 self.text += '    '
             elif pressed[pygame.K_CAPSLOCK] and (not pygame.K_CAPSLOCK in self.recentPressed):
                 capsLock = not capsLock
-                print(capsLock)
             elif pressed[pygame.K_BACKSPACE] and (not pygame.K_BACKSPACE in self.recentPressed):
                 if len(self.text) : self.text = self.text[:-1]
             elif pressed[pygame.K_SPACE] and (not pygame.K_SPACE in self.recentPressed):
@@ -532,8 +577,59 @@ class TextInput:
         if (timer//50)%2 : text+='|'
         write(screen,text,[5+ self.x - (not self.center) * self.size * self.maxText/3, 5+ self.y + (not self.center) * self.size/2],FONT,self.size,BLACK,1)
 
+class Button:
+    def __init__(self,x,y,size,img) -> None:
+        self.x = x
+        self.y = y
+        self.preClick = False
+        self.size = size
+        IMG = pygame.image.load(os.path.join('.','assets','pictures',img))
+        self.skin = pygame.transform.scale(IMG, (self.size, self.size))
+    
+    def setImg(self,img):
+        IMG = pygame.image.load(os.path.join('.','assets','pictures',img))
+        self.skin = pygame.transform.scale(IMG, (self.size, self.size))
+    
+    def clicked(self,mouse,**karg):
+        x,y,clicked = mouse
+        size = self.size/2
+        if self.x - size <= x <= self.x + size and self.y - size <= y <= self.y + size and clicked:
+            if not self.preClick:
+                self.preClick = True
+                return self.oriMethod(**karg)
+        else:
+            self.preClick = False
+
+    
+    def draw(self,screen):
+        self.skinRect = self.skin.get_rect(center = (self.x,self.y))
+        screen.blit(self.skin, self.skinRect)
+    
+    def oriMethod(self):
+        pass
+
+class VolumeButton(Button):
+    def __init__(self, x, y) -> None:
+        super().__init__(x, y, 50, 'volumeButton_1.png')
+        self.volume = 1
+    
+    def oriMethod(self):
+        self.volume += 1
+        if self.volume > 3 : self.volume = 0
+        self.setImg(f'volumeButton_{self.volume}.png')
+        pygame.mixer.music.set_volume(0.25 * (3-self.volume))
+
+class RankButton(Button):
+    def __init__(self, x, y) -> None:
+        super().__init__(x, y, 50, 'Ranking.png')
+    
+    def oriMethod(self,**option):
+        if option:
+            rankProcess(option['screen'],option['name'],option['score'],option['character'])
+        return True
+
 GROUND = -400
 
 PLAYER_SIZE = 20
-PLAYER_LIST = [Standard,Tech,Giant,Gatling]
+PLAYER_LIST = [Standard,Tech,Giant,Gatling,Subject]
 PLAYER_NAME_LIST = list(map(lambda x: x.repr(),PLAYER_LIST))

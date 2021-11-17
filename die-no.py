@@ -1,15 +1,6 @@
 from assets.classes import *
-if getattr(sys, 'frozen', False):
-    os.chdir(os.path.dirname(sys.executable))
-
 try:
-    import firebase_admin
-    from firebase_admin import credentials
     from firebase_admin import db
-
-    db_url = 'https://ham2021-bothe-default-rtdb.asia-southeast1.firebasedatabase.app/'
-    cred = credentials.Certificate(os.path.join('.','assets','key.json'))
-    default_app = firebase_admin.initialize_app(cred, {'databaseURL':db_url})
 except:
     pass
 
@@ -19,25 +10,18 @@ pressed_keys = []
 jumped = 0
 objectTimer = 0
 timer = 0
-scene = START_SCENE
 score = 0
 pattern = Pattern()
 items = []
 mouse = [0,0,0]
-character = 0
 damagedTime = -255
 highScore = False
 savedScore = 0
 BGTimer = 0
+rank = []
 textInput = TextInput(SCREEN_WIDTH/2,SCREEN_HEIGHT/2,20,20)
-
-WIFI_STATUS = False
-try:
-    url = "https://www.google.com"
-    urllib.urlopen(url)
-    WIFI_STATUS = True
-except:
-    WIFI_STATUS = False
+volumeButton = VolumeButton(SCREEN_WIDTH-40,50)
+rankButton = RankButton(SCREEN_WIDTH/2,SCREEN_HEIGHT - 40)
 
 def makeObstacle(cycle):
     global obstacles
@@ -97,14 +81,11 @@ def playerMoveAndDraw(screen,player):
             screen.blit(loading,(0,0))
             write(screen,'LOADING...',(SCREEN_WIDTH/2,SCREEN_HEIGHT/2),FONT,75,WHITE)
             pygame.display.update()
-            #time.sleep(1)
             try:
                 ref = db.reference()
                 if ref.get() is None:
-                    ref.update({"best":score})
                     highScore = True
-                elif ref.get().get("best") < score:
-                    ref.update({"best":score})
+                elif ref.get()['rank'][0][1] < score:
                     highScore = True
             except:
                 pass
@@ -171,17 +152,21 @@ def getDamagedScreen(screen,damagedTime):
     pygame.draw.rect(redRect,RED,pygame.Rect(0,0,SCREEN_WIDTH - 40,SCREEN_HEIGHT - 80),20)
     screen.blit(redRect, (20,40))
 
-def startButton(screen):
+def startButton(screen,pos,size):
     global scene
 
-    centerPos = (SCREEN_WIDTH/2,SCREEN_HEIGHT*3/4)
-    pygame.draw.circle(screen,WHITE,centerPos,50)
-    startPos = (SCREEN_WIDTH/2+35,SCREEN_HEIGHT*3/4)
-    secondPos = move(startPos,210,60)
-    thirdPos = move(startPos,-210,60)
+    centerPos = pos
+    size = size/100
+    pygame.draw.circle(screen,WHITE,centerPos,50*size)
+    startPos = (centerPos[0]+35*size,centerPos[1])
+    secondPos = move(startPos,210,60*size)
+    thirdPos = move(startPos,-210,60*size)
     pygame.draw.polygon(screen,BLACK,[startPos,secondPos,thirdPos])
-    if isPointInCircle(mouse[0],mouse[1],centerPos[0],centerPos[1],50) and CLICK:
-        scene = CHARACTER_CHOOSE_SCENE
+    if isPointInCircle(mouse[0],mouse[1],centerPos[0],centerPos[1],50*size) and CLICK:
+        if scene == START_SCENE or scene == DISPLAY_RANK_SCENE:
+            scene = CHARACTER_CHOOSE_SCENE
+        else:
+            scene = RANK_PROCESS_SCENE
 
 def keyboard():
     global mouse
@@ -240,7 +225,7 @@ if __name__ == "__main__":
     try:
         pygame.mixer.init()
         pygame.mixer.music.load(os.path.join('.','assets','musics','Hope.mp3'))
-        pygame.mixer.music.load(os.path.join('.','assets','musics','SkyHigh.mp3'))
+        #pygame.mixer.music.load(os.path.join('.','assets','musics','SkyHigh.mp3'))
         pygame.mixer.music.play(-1)
         pygame.mixer.music.set_volume(0.5)
     except:
@@ -253,21 +238,28 @@ if __name__ == "__main__":
         
         CLICK = mouse[2]
         screen.fill(BLACK)
+        volumeButton.clicked(mouse)
         if scene == START_SCENE :
             write(screen,'DIE-NO GAME',(SCREEN_WIDTH/2,SCREEN_HEIGHT/4),FONT,100,WHITE)
-            startButton(screen=screen)
+            if WIFI_STATUS:
+                if rankButton.clicked(mouse):
+                    rank = (db.reference().get()['rank'] if db.reference().get() is not None else None)
+                    scene = DISPLAY_RANK_SCENE
+                rankButton.draw(screen)
+            startButton(screen,(SCREEN_WIDTH/2,SCREEN_HEIGHT*3/4),100)
 
         elif scene == CHARACTER_CHOOSE_SCENE :
             timer = 0
             highScore = False
             startPos = (20,SCREEN_HEIGHT/3 + 10)
+            
             pygame.draw.line(screen,WHITE,(0,startPos[1]-30),(SCREEN_WIDTH,startPos[1]-30),5)
             pygame.draw.line(screen,WHITE,(SCREEN_WIDTH*1/3,0),(SCREEN_WIDTH*1/3,SCREEN_HEIGHT/3 - 20),5)
             write(screen,'CHOOSE YOUR CHARACTER',(SCREEN_WIDTH/2,SCREEN_HEIGHT*5/6),FONT,50,WHITE)
             for i in range(len(PLAYER_LIST)):
-                button = pygame.Rect(startPos[0] + (500/6 + 10)*(i%5), startPos[1] + (500/6 + 10) * (i // 5) ,500/6 - 20 , 500/6 - 20)
+                button = pygame.Rect(startPos[0] + (500/6 + 10)*(i%8), startPos[1] + (500/6 + 10) * (i // 8) ,500/6 - 20 , 500/6 - 20)
                 pygame.draw.rect(screen,WHITE,button)
-                blankBlank = pygame.Rect(startPos[0] + (500/6 + 10)*(i%5) + 5, startPos[1] + (500/6 + 10) * (i // 5) + 5 ,500/6 - 20 -10 ,500/6 - 20 -10)
+                blankBlank = pygame.Rect(startPos[0] + (500/6 + 10)*(i%8) + 5, startPos[1] + (500/6 + 10) * (i // 8) + 5 ,500/6 - 20 -10 ,500/6 - 20 -10)
                 pygame.draw.rect(screen,BLACK,blankBlank)
                 PLAYER_LIST[i](button.x + button.width/2, -button.y-button.height/2,GROUND,(SCREEN_WIDTH/12 - 20 -10)*2/5).draw(screen)
                 if isPointInRect(mouse[0],mouse[1],button):
@@ -285,6 +277,7 @@ if __name__ == "__main__":
                         playerHP = PlayerHPBar(player)
 
         elif scene == GAME_SCENE :
+            
             makeObstacle(int(1000/SPEED))
             drawBG(screen,timer)
             pygame.draw.line(screen,WHITE,(0,-GROUND),(SCREEN_WIDTH,-GROUND),5)
@@ -314,7 +307,7 @@ if __name__ == "__main__":
         elif scene == DIED_SCENE:
             write(screen,'YOU DIED',(SCREEN_WIDTH/2,SCREEN_HEIGHT/5),FONT,70,RED)
             write(screen,'SCORE : '+str(round(savedScore,3)),(SCREEN_WIDTH/2,SCREEN_HEIGHT/5+60),FONT,30,WHITE)
-            if highScore : write(screen,'HIGH SCORE!',(SCREEN_WIDTH/2,SCREEN_HEIGHT/5+80),FONT,30,YELLOW)
+            if highScore : write(screen,'HIGH SCORE!',(SCREEN_WIDTH/2,SCREEN_HEIGHT/5+100),FONT,30,YELLOW)
             write(screen,'YOUR NAME',(SCREEN_WIDTH/2 - 340,SCREEN_HEIGHT/2+ 10),FONT,30,WHITE,1)
             textInput.input()
             textInput.draw(screen,timer)
@@ -328,5 +321,33 @@ if __name__ == "__main__":
             jumped = 0
             BGTimer = 0
             timer += 1
-            startButton(screen=screen)
+            if len(textInput.text):
+                startButton(screen,(SCREEN_WIDTH/2,SCREEN_HEIGHT*3/4),100)
+                if WIFI_STATUS:
+                    if rankButton.clicked(mouse,screen = screen,name = textInput.text,score = savedScore,character=character):
+                        rank = (db.reference().get()['rank'] if db.reference().get() is not None else None)
+                        scene = DISPLAY_RANK_SCENE
+                    rankButton.draw(screen)
+        
+        elif scene == RANK_PROCESS_SCENE:
+            rankProcess(screen,textInput.text,savedScore,character)
+            scene = CHARACTER_CHOOSE_SCENE
+        elif scene == DISPLAY_RANK_SCENE :
+            height = 30
+            pygame.draw.line(screen,WHITE,(SCREEN_WIDTH/5,height),(SCREEN_WIDTH*4/5,height),10)
+            write(screen,'RANKING',(SCREEN_WIDTH/2,height+25),FONT,40,WHITE)
+            pygame.draw.line(screen,WHITE,(SCREEN_WIDTH/5,height+50),(SCREEN_WIDTH*4/5,height+50),10)
+            if rank is not None:
+                names = list(map(lambda x : x[0],rank))
+                scores = list(map(lambda x : x[1],rank))
+                characters = list(map(lambda x : x[2],rank))
+                for i in range(len(rank)):
+                    write(screen,str(i+1),(SCREEN_WIDTH/5,SCREEN_HEIGHT/15*i+height+90),FONT,20,WHITE)
+                    write(screen,names[i],(SCREEN_WIDTH/5+20,SCREEN_HEIGHT/15*i+height+75),FONT,20,WHITE,1)
+                    PLAYER_LIST[characters[i]](SCREEN_WIDTH*3/5 - 50, -(SCREEN_HEIGHT/15*i+height+90),GROUND,15).draw(screen)
+                    write(screen,str(round(scores[i])),(SCREEN_WIDTH/5*3,SCREEN_HEIGHT/15*i+height+75),FONT,20,WHITE,1)
+            else:
+                write(screen,'No Data Yet',(SCREEN_WIDTH/2,(SCREEN_HEIGHT+height)/2),FONT,50,WHITE)
+            startButton(screen,(SCREEN_WIDTH - 30,SCREEN_HEIGHT - 30),50)
+        volumeButton.draw(screen)
         pygame.display.update()
